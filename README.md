@@ -1,1 +1,1 @@
-# openai-gym-rl
+# ai-bots
