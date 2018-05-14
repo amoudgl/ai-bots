@@ -1,4 +1,4 @@
-''' PyTorch Deep Q-learning Implementation with Experience Replay''' 
+''' PyTorch Deep Q-learning Implementation with Experience Replay '''
 
 import numpy as np
 import argparse
@@ -16,13 +16,12 @@ import random
 # hyperparams as arguments
 args = None
 parser = argparse.ArgumentParser(description='Deep Q-learning')
-parser.add_argument('-mode', default='train', type=str, help='mode of agent')
 parser.add_argument('-n', '--train-episodes', default=10000, type=int, help='number of training episodes')
 parser.add_argument('-gamma', '--discount-factor', default=0.95, type=float, help='discount factor')
-parser.add_argument('-e', '--epsilon', default=1.0, type=float, help='epsilon greedy factor')
+parser.add_argument('-e', '--epsilon', default=1.0, type=float, help='initial epsilon greedy factor')
 parser.add_argument('-ed', '--epsilon-decay', default=0.995, type=float, help='epsilon decay factor')
 parser.add_argument('-lr', '--learning-rate', default=0.001, type=float, help='learning rate')
-parser.add_argument('-b', '--batch-size', default=50, type=int, help='batch size')
+parser.add_argument('-b', '--batch-size', default=50, type=int, help='batch size for experience replay')
 
 # converts a python object to torch variable
 def convert_to_variable(x, grad=True):
@@ -53,7 +52,7 @@ def exp_replay(net, memory, loss, optimizer, batch_size):
     for s, a, rew, next_s, done in minibatch:
         q_values = net(convert_to_variable(s))
         targetq = torch.Tensor()
-        targetq = q_values.data.clone() 
+        targetq = q_values.data.clone()
         if not done:
             next_q_values = net(convert_to_variable(next_s))
             maxq = torch_max(next_q_values)
@@ -61,8 +60,8 @@ def exp_replay(net, memory, loss, optimizer, batch_size):
         else:
             targetq[a] = rew
         optimizer.zero_grad()
-        l = loss(q_values, targetq) 
-        l.backward()   
+        l = loss(q_values, targetq)
+        l.backward()
         optimizer.step()
 
 # simple q-network
@@ -86,9 +85,7 @@ def train(net, env, loss, optimizer):
     global args
     epsilon = args.epsilon
     memory = deque(maxlen=2000)
-
     for episode in range(args.train_episodes):
-    
         # reset environment for new episode
         s = env.reset()
         done = False
@@ -118,7 +115,7 @@ def train(net, env, loss, optimizer):
             if epsilon > 0.01: # keep 0.01 as minimum epsilon value
                 epsilon = epsilon * args.epsilon_decay
         print("Episode %d finished after %d timesteps, epsilon = %f" % (episode+1, t, epsilon))
-        
+
     return net
 
 def main():
@@ -139,4 +136,3 @@ def main():
 if __name__ == '__main__':
     net = main()
     torch.save(net.state_dict(), 'checkpoint.pth.tar')
-
