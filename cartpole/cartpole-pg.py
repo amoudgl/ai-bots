@@ -38,7 +38,7 @@ y = tf.nn.softmax(tf.matmul(tf.tanh(tf.matmul(obv, W0) + b0[None, :]), W1) + b1[
 idx_flattened = tf.range(0, tf.shape(y)[0]) * tf.shape(y)[1] + acts
 yy = tf.gather(tf.reshape(y, [-1]), idx_flattened)
 N = tf.cast(N, tf.float64)
-loss = -tf.reduce_sum(tf.mul(tf.log(yy), adv)) / N
+loss = -tf.reduce_sum(tf.multiply(tf.log(yy), adv)) / N
 train_step = tf.train.RMSPropOptimizer(learning_rate = learning_rate, decay = decay_rate, epsilon = epsilon).minimize(loss, var_list=params)
 
 def act(obvs, sess):
@@ -51,7 +51,7 @@ def act(obvs, sess):
 def get_discounted_return(r, discount_factor):
 	y = np.zeros(len(r), 'float64')
 	y[-1] = r[-1]
-	for i in reversed(xrange(len(r)-1)):
+	for i in reversed(range(len(r)-1)):
 		y[i] = r[i] + discount_factor * y[i + 1]
 	return y
 
