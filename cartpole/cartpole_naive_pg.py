@@ -115,7 +115,7 @@ def train(net, env, optimizer):
             target = torch.zeros(probs.shape)
             target[0, a] = 1
 
-            # store episode target, actions probabilities and targets
+            # store episode rewards, actions probabilities and targets
             eps_targets = torch.cat((eps_targets, target), 0) if eps_targets is not None else target
             eps_probs = torch.cat((eps_probs, probs), 0) if eps_probs is not None else probs
             eps_rew.append(rew)
