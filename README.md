@@ -2,6 +2,8 @@
 
 Implementation of several AI and RL algorithms in Python. Evaluation on OpenAI Gym environments. 
 
+![cartpole training gif](results/cartpole_output.gif)
+
 ## Implemented Algorithms
 
 - [Naive Policy Gradient](https://github.com/amoudgl/ai-bots/blob/master/cartpole/cartpole_naive_pg.py)
