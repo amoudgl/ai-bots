@@ -58,12 +58,13 @@ def get_discounted_returns(eps_rew):
     return convert_to_variable(list(reversed(returns)), False)
 
 # naive policy gradient update
-def pg_update(net, optimizer, eps_rew, eps_probs, eps_targets):
+def pg_update(optimizer, criterion, eps_rew, eps_probs, eps_targets):
     discounted_returns = get_discounted_returns(eps_rew)
-    eps_targets = convert_to_variable(eps_targets, False)
-    grads = discounted_returns[:,None] * (eps_probs - eps_targets)
+    eps_targets = torch.argmax(eps_targets, dim=1)
+    pg_loss = criterion(eps_probs, eps_targets)
+    pg_loss = discounted_returns*pg_loss
     optimizer.zero_grad()
-    eps_probs.backward(grads)
+    pg_loss.sum().backward()
     optimizer.step()
 
 # simple policy network
@@ -76,8 +77,7 @@ class PolicyNet(nn.Module):
                 nn.ReLU(True),
                 nn.Linear(30, 25),
                 nn.ReLU(True),
-                nn.Linear(25, 2),
-                nn.Softmax()
+                nn.Linear(25, 2)
             )
 
     def forward(self, X):
@@ -88,7 +88,7 @@ class PolicyNet(nn.Module):
 def train(net, env, optimizer):
     global args
     epsilon = args.epsilon
-    memory = deque(maxlen=2000)
+    criterion = nn.CrossEntropyLoss(reduce=False, size_average=True)
     for episode in range(args.train_episodes):
         # reset environment for new episode
         s = env.reset()
@@ -125,7 +125,7 @@ def train(net, env, optimizer):
             t = t + 1
 
         # update network after each episode with naive policy gradient
-        pg_update(net, optimizer, eps_rew, eps_probs, eps_targets)
+        pg_update(optimizer, criterion, eps_rew, eps_probs, eps_targets)
 
         # decrease exploration with time
         if epsilon > 0.01: # keep 0.01 as minimum epsilon value
