@@ -178,7 +178,7 @@ def train(net, env, loss, optimizer):
             eps_rew += rew
 
             # update the network with experience replay
-            if len(memory) > 100:
+            if len(memory) > args.replay_start_size:
                 exp_replay(net, memory, loss, optimizer, args.batch_size, global_t)
 
             # decrease exploration with time
