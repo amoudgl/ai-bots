@@ -1,7 +1,6 @@
 '''
 PyTorch Deep Q-learning Implementation with Experience Replay for Atari
 Hyperparams are chosen from the paper: https://arxiv.org/abs/1312.5602
-
 '''
 
 import numpy as np
@@ -30,7 +29,6 @@ writer = SummaryWriter('runs/' + exp_name)
 parser = argparse.ArgumentParser(description='Atari DQN')
 parser.add_argument('--no-gpu', help='do not use gpu for training', action='store_true')
 parser.add_argument('-n', '--train-episodes', default=100000, type=int, help='number of training episodes')
-parser.add_argument('-n1', default=100, type=int, help='number of training episodes')
 parser.add_argument('-gamma', '--discount-factor', default=0.95, type=float, help='discount factor')
 parser.add_argument('-e', '--epsilon', default=1.0, type=float, help='initial epsilon greedy factor')
 parser.add_argument('-lr', '--learning-rate', default=0.0002, type=float, help='learning rate')
