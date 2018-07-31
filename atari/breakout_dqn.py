@@ -1,6 +1,7 @@
-''' 
+'''
 PyTorch Deep Q-learning Implementation with Experience Replay for Atari
 Hyperparams are chosen from the paper: https://arxiv.org/abs/1312.5602
+
 '''
 
 import numpy as np
@@ -15,16 +16,21 @@ import gym
 from gym import wrappers
 from collections import deque
 import random
-import cv2
 import time, datetime
 from tensorboardX import SummaryWriter
+import os, sys
+from PIL import Image
 
 # hyperparams as arguments
+exp_name = 'breakout_dqn' # experiment name for saving model checkpoints and tensorboard plot
 args = None
+save_path = None
 use_gpu = torch.cuda.is_available()
-writer = SummaryWriter()
+writer = SummaryWriter('runs/' + exp_name)
 parser = argparse.ArgumentParser(description='Atari DQN')
+parser.add_argument('--no-gpu', help='do not use gpu for training', action='store_true')
 parser.add_argument('-n', '--train-episodes', default=100000, type=int, help='number of training episodes')
+parser.add_argument('-n1', default=100, type=int, help='number of training episodes')
 parser.add_argument('-gamma', '--discount-factor', default=0.95, type=float, help='discount factor')
 parser.add_argument('-e', '--epsilon', default=1.0, type=float, help='initial epsilon greedy factor')
 parser.add_argument('-lr', '--learning-rate', default=0.0002, type=float, help='learning rate')
@@ -56,9 +62,12 @@ class DQN(nn.Module):
 
 # takes (210,160,3) input and returns (84,84) image
 def preprocess(I):
-    I = cv2.resize(I, (84,110))
+    I = Image.fromarray(np.uint8(I))
+    I = I.resize((84,110))
+    I = np.array(I)
     I = np.mean(I, axis=2).astype(np.uint8)
     I = I[26:,:]
+    I = I[:,:,None]
     return I
 
 # returns +1/-1 reward
@@ -118,7 +127,9 @@ def exp_replay(net, memory, loss, optimizer, batch_size, global_t):
     for history, a, rew, next_history, done in minibatch:
         history = convert_to_variable(history)
         q_values = net(history)
-        targetq = torch.Tensor().cuda()
+        targetq = torch.Tensor()
+        if use_gpu:
+            targetq = targetq.cuda()
         targetq = q_values.data.clone()
         if not done:
             next_history = convert_to_variable(next_history)
@@ -155,7 +166,7 @@ def train(net, env, loss, optimizer):
         eps_rew = 0
         done = False
         t = 0
-        s = preprocess(s)[:,:,None]
+        s = preprocess(s)
         history = np.concatenate((s,s,s,s), axis=2) # copy states since we have no proceeding states
 
         # while episode is not finished
@@ -166,7 +177,7 @@ def train(net, env, loss, optimizer):
             # store state, next state, action, reward in memory
             next_s, rew, done, _ = env.step(a+1)
             rew = clip_reward(rew)
-            next_s = preprocess(next_s)[:,:,None]
+            next_s = preprocess(next_s)
             next_history = np.concatenate((next_s, history[:,:,:3]), axis=2)
             memory.append((history, a, rew, next_history, done))
 
@@ -185,7 +196,7 @@ def train(net, env, loss, optimizer):
             epsilon = epsilon if global_t < args.replay_start_size else decay(f, global_t-args.replay_start_size)
 
             if global_t % 50000 == 0:
-                torch.save(net.state_dict(), '../data/breakout/checkpoint_' + str(global_t) + '.pth.tar')
+                torch.save(net.state_dict(), save_path + '/checkpoint_' + str(global_t) + '.pth.tar')
             writer.add_scalar('data/epsilon_vs_steps', epsilon, global_t)
             writer.add_scalar('data/reward_vs_steps', rew, global_t)
 
@@ -198,20 +209,27 @@ def train(net, env, loss, optimizer):
                                                                                             episode+1,
                                                                                             t, eps_rew,
                                                                                             end_time-start_time))
+        sys.stdout.flush()
         writer.add_scalar('perf/score_vs_episode', eps_rew, episode+1)
         writer.add_scalar('data/timesteps_vs_episode', t, episode+1)
 
     return net
 
 def main():
-    global args
+    global args, save_path, use_gpu
     args = parser.parse_args()
 
     # initialization
+    if args.no_gpu:
+        use_gpu = False
     env = gym.make('BreakoutDeterministic-v4')
     net = DQN()
     loss = torch.nn.MSELoss()
     optimizer = optim.RMSprop(net.parameters(), lr=args.learning_rate, alpha=0.99, eps=1e-6)
+    save_path = '../data/' + exp_name
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+        print('Created directory ' + save_path + ' to save model checkpoints')
     if use_gpu:
         net = net.cuda()
         loss = loss.cuda()
@@ -222,4 +240,4 @@ def main():
 
 if __name__ == '__main__':
     net = main()
-    torch.save(net.state_dict(), 'checkpoint.pth.tar')
+    torch.save(net.state_dict(), save_path + '/best_checkpoint.pth.tar')
