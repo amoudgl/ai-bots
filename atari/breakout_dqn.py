@@ -34,6 +34,8 @@ parser.add_argument('-e', '--epsilon', default=1.0, type=float, help='initial ep
 parser.add_argument('-lr', '--learning-rate', default=0.0002, type=float, help='learning rate')
 parser.add_argument('-b', '--batch-size', default=32, type=int, help='batch size for experience replay')
 parser.add_argument('-rss', '--replay-start-size', default=100, type=int, help='populate replay buffer for these many steps with random actions')
+parser.add_argument('-size', '--replay-buffer-size', default=1000000, type=int, help='size of replay buffer')
+parser.add_argument('-f', '--save-frequency', default=50000, type=int, help='save model checkpoint every these many steps')
 
 # deep q-network
 class DQN(nn.Module):
@@ -156,7 +158,7 @@ def train(net, env, loss, optimizer):
     global_t = 0
     global_time = 0
 
-    memory = deque(maxlen=1000000)
+    memory = deque(maxlen=args.replay_buffer_size)
     for episode in range(args.train_episodes):
         # reset environment for new
         start_time = time.time()
@@ -193,7 +195,7 @@ def train(net, env, loss, optimizer):
             # decrease exploration with time
             epsilon = epsilon if global_t < args.replay_start_size else decay(f, global_t-args.replay_start_size)
 
-            if global_t % 50000 == 0:
+            if global_t % args.save_frequency == 0:
                 torch.save(net.state_dict(), save_path + '/checkpoint_' + str(global_t) + '.pth.tar')
             writer.add_scalar('data/epsilon_vs_steps', epsilon, global_t)
             writer.add_scalar('data/reward_vs_steps', rew, global_t)
