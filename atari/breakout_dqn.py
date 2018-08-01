@@ -1,6 +1,22 @@
 '''
 PyTorch Deep Q-learning Implementation with Experience Replay for Atari
-Hyperparams are chosen from the paper: https://arxiv.org/abs/1312.5602
+Default hyperparams are chosen from the paper: https://arxiv.org/abs/1312.5602
+
+Usage [python3 recommended]:
+
+For testing model from trained checkpoint, do:
+
+python3 breakout_dqn.py -ckpt /path/to/checkpoint.pth.tar --test
+
+For training Q-agent with default hyperparams, do:
+
+python3 breakout_dqn.py
+
+This code uses GPU by default, if your system has one otherwise it uses CPU.
+To avoid using any GPU, add '--no-gpu' argument as follows:
+
+python3 breakout_dqn.py --no-gpu
+
 '''
 
 import numpy as np
@@ -36,6 +52,8 @@ parser.add_argument('-b', '--batch-size', default=32, type=int, help='batch size
 parser.add_argument('-rss', '--replay-start-size', default=100, type=int, help='populate replay buffer for these many steps with random actions')
 parser.add_argument('-size', '--replay-buffer-size', default=1000000, type=int, help='size of replay buffer')
 parser.add_argument('-f', '--save-frequency', default=50000, type=int, help='save model checkpoint every these many steps')
+parser.add_argument('--test', help='test on breakout game using trained checkpoint', action='store_true')
+parser.add_argument('-ckpt', '--test-checkpoint', default='', type=str, help='path to trained checkpoint')
 
 # deep q-network
 class DQN(nn.Module):
@@ -212,32 +230,64 @@ def train(net, env, loss, optimizer):
         sys.stdout.flush()
         writer.add_scalar('perf/score_vs_episode', eps_rew, episode+1)
         writer.add_scalar('data/timesteps_vs_episode', t, episode+1)
-
     return net
+
+# test trained q-agent
+def test(net, env):
+    test_episodes = 10
+    eps = 0.1
+    net.load_state_dict(torch.load(args.test_checkpoint))
+    print('Loaded %s for testing' % (args.test_checkpoint))
+    if use_gpu:
+        net = net.cuda()
+    for episode in range(test_episodes):
+        s = env.reset()
+        s = preprocess(s)
+        score = 0
+        done = False
+        history = np.concatenate((s,s,s,s), axis=2)
+        t = 0
+        while not done:
+            a = act(net, history, eps, 1000)
+            env.render()
+            time.sleep(0.01)
+            next_s, rew, done, _ = env.step(a+1)
+            next_s = preprocess(next_s)
+            next_history = np.concatenate((next_s, history[:,:,:3]), axis=2)
+            s = next_s
+            history = next_history
+            score += rew
+            t += 1
+        print("[test] episode %d, reward = %d steps = %d" % (episode+1, score, t))
 
 def main():
     global args, save_path, use_gpu
     args = parser.parse_args()
-
-    # initialization
-    if args.no_gpu:
-        use_gpu = False
     env = gym.make('BreakoutDeterministic-v4')
     net = DQN()
-    loss = torch.nn.MSELoss()
-    optimizer = optim.RMSprop(net.parameters(), lr=args.learning_rate, alpha=0.99, eps=1e-6)
-    save_path = '../data/' + exp_name
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-        print('Created directory ' + save_path + ' to save model checkpoints')
-    if use_gpu:
-        net = net.cuda()
-        loss = loss.cuda()
 
-    # train q-agent
-    net = train(net, env, loss, optimizer)
+    if args.test:
+        test(net, env)
+    else:
+        # initialization
+        if args.no_gpu:
+            use_gpu = False
+        loss = torch.nn.MSELoss()
+        optimizer = optim.RMSprop(net.parameters(), lr=args.learning_rate, alpha=0.99, eps=1e-6)
+        save_path = '../data/' + exp_name
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+            print('Created directory ' + save_path + ' to save model checkpoints')
+        if use_gpu:
+            net = net.cuda()
+            loss = loss.cuda()
+
+        # train q-agent
+        net = train(net, env, loss, optimizer)
+    env.close()
     return net
 
 if __name__ == '__main__':
     net = main()
-    torch.save(net.state_dict(), save_path + '/best_checkpoint.pth.tar')
+    if not args.test:
+        torch.save(net.state_dict(), save_path + '/best_checkpoint.pth.tar')
